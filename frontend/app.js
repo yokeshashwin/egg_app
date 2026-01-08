@@ -259,3 +259,7 @@ async function loadTotalBalance() {
   due.innerText = `₹${d.total_due}`;
   net.innerText = `₹${d.net_balance}`;
 }
+
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/service-worker.js");
+}
