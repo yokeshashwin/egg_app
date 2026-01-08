@@ -12,12 +12,12 @@
 
   "icons": [
     {
-      "src": "/icons/icon-192.png",
+      "src": "/egg.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "/icons/icon-512.png",
+      "src": "/egg.png",
       "sizes": "512x512",
       "type": "image/png"
     }
