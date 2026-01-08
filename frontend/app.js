@@ -1,4 +1,4 @@
-const API = "https://egg-app.onrender.com/";
+const API = "https://egg-app.onrender.com";
 
 /* ========= LAST USED EGGS ========= */
 function getLastEggs() {
