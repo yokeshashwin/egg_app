@@ -1,11 +1,15 @@
 {
+  "id": "/",
   "name": "Egg Expense Tracker",
   "short_name": "Egg Tracker",
+  "description": "Track daily egg consumption, per-person expenses, dues, and balance settlements with history and reports.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#6366f1",
   "orientation": "portrait",
+  "theme_color": "#6366f1",
+  "background_color": "#0f172a",
+
   "icons": [
     {
       "src": "icon-192.png",
@@ -16,6 +20,23 @@
       "src": "icon-512.png",
       "sizes": "512x512",
       "type": "image/png"
+    }
+  ],
+
+  "screenshots": [
+    {
+      "src": "/screenshots/home.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Dashboard – Egg Expense Overview"
+    },
+    {
+      "src": "/screenshots/history.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Daily Egg & Person History"
     }
   ]
 }
