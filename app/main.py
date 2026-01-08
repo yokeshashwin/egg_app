@@ -1,9 +1,9 @@
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import Base, engine, SessionLocal
 from app import services, schemas
-from fastapi.middleware.cors import CORSMiddleware
 
 Base.metadata.create_all(bind=engine)
 
@@ -17,6 +17,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 def get_db():
     db = SessionLocal()
     try:
@@ -25,23 +26,7 @@ def get_db():
         db.close()
 
 
-# -------- WALLET --------
-@app.post("/wallet/create")
-def create_wallet(wallet: schemas.WalletCreate, db: Session = Depends(get_db)):
-    return services.create_wallet(db, wallet.amount)
-
-
-@app.post("/wallet/recharge")
-def recharge_wallet(wallet: schemas.WalletRecharge, db: Session = Depends(get_db)):
-    return services.recharge_wallet(db, wallet.amount)
-
-
-@app.get("/wallet")
-def wallet_status(db: Session = Depends(get_db)):
-    return services.get_wallet(db)
-
-
-# -------- PEOPLE (FULL CRUD) --------
+# ================= PEOPLE =================
 @app.post("/people")
 def add_person(person: schemas.PersonCreate, db: Session = Depends(get_db)):
     return services.add_person(db, person.name)
@@ -57,64 +42,69 @@ def get_person(person_id: int, db: Session = Depends(get_db)):
     try:
         return services.get_person(db, person_id)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(404, str(e))
 
 
 @app.put("/people/{person_id}")
-def update_person(
-    person_id: int,
-    person: schemas.PersonUpdate,
-    db: Session = Depends(get_db)
-):
-    try:
-        return services.update_person(db, person_id, person.name)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+def update_person(person_id: int, person: schemas.PersonUpdate, db: Session = Depends(get_db)):
+    return services.update_person(db, person_id, person.name)
 
 
 @app.delete("/people/{person_id}")
 def delete_person(person_id: int, db: Session = Depends(get_db)):
     try:
         services.delete_person(db, person_id)
-        return {"message": "Deleted successfully"}
+        return {"message": "Deleted"}
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(400, str(e))
 
 
-# -------- DAILY EGGS --------
+# ================= RECHARGE =================
+@app.post("/people/{person_id}/recharge")
+def recharge_person(person_id: int, body: schemas.RechargeAmount, db: Session = Depends(get_db)):
+    return services.recharge_person(db, person_id, body.amount)
+
+
+@app.post("/people/{person_id}/clear-balance")
+def clear_person_balance(person_id: int, db: Session = Depends(get_db)):
+    return services.clear_person_balance(db, person_id)
+
+
+# ================= DAILY EGGS =================
 @app.post("/daily-eggs")
 def daily_eggs(entry: schemas.DailyEggEntry, db: Session = Depends(get_db)):
-    try:
-        return services.add_daily_eggs(db, entry.dict())
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@app.get("/reports/daily-eggs")
-def daily_egg_report(db: Session = Depends(get_db)):
-    return services.list_daily_eggs(db)
-
-
-@app.get("/reports/people-summary")
-def people_summary(db: Session = Depends(get_db)):
-    return services.list_people(db)
-
-
-# -------- RECHARGE SPLIT --------
-@app.post("/recharge-split")
-def recharge_split(amount: float, db: Session = Depends(get_db)):
-    return services.recharge_split(db, amount)
+    return services.add_daily_eggs(db, entry.dict())
 
 
 @app.post("/daily-eggs/undo")
 def undo_daily_eggs(db: Session = Depends(get_db)):
-    try:
-        return services.undo_last_daily_eggs(db)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    return services.undo_last_daily_eggs(db)
 
+
+@app.get("/reports/daily-eggs")
+def daily_eggs_report(db: Session = Depends(get_db)):
+    return services.list_daily_eggs(db)
+
+
+# ================= REPORTS =================
+@app.get("/people/{person_id}/history")
+def person_history(person_id: int, db: Session = Depends(get_db)):
+    return services.person_history(db, person_id)
+
+
+@app.get("/reports/dues")
+def dues(db: Session = Depends(get_db)):
+    return services.get_due_report(db)
+
+
+@app.get("/reports/total-balance")
+def total_balance(db: Session = Depends(get_db)):
+    return services.get_total_balance(db)
+
+
+# ================= ADMIN =================
 @app.delete("/daily-eggs/clear")
-def clear_daily_eggs(db: Session = Depends(get_db)):
+def clear_daily(db: Session = Depends(get_db)):
     return services.clear_daily_history(db)
 
 
@@ -122,6 +112,9 @@ def clear_daily_eggs(db: Session = Depends(get_db)):
 def clear_db(db: Session = Depends(get_db)):
     return services.clear_database(db)
 
-@app.post("/wallet/clear")
-def clear_wallet(db: Session = Depends(get_db)):
-    return services.clear_wallet(db)
+@app.get("/reports/person/{person_id}")
+def person_history(person_id: int, db: Session = Depends(get_db)):
+    try:
+        return services.get_person_history(db, person_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))

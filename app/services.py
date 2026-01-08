@@ -1,33 +1,8 @@
 from sqlalchemy.orm import Session
-from app.models import Wallet, Person, DailyEgg
+from app.models import Person, DailyEgg, DailyEggPerson
 
 
-# ---------------- WALLET ----------------
-def get_wallet(db: Session):
-    wallet = db.query(Wallet).first()
-    if not wallet:
-        wallet = Wallet(balance=0)
-        db.add(wallet)
-        db.commit()
-        db.refresh(wallet)
-    return wallet
-
-
-def create_wallet(db: Session, amount: float):
-    wallet = get_wallet(db)
-    wallet.balance = amount
-    db.commit()
-    return wallet
-
-
-def recharge_wallet(db: Session, amount: float):
-    wallet = get_wallet(db)
-    wallet.balance += amount
-    db.commit()
-    return wallet
-
-
-# ---------------- PEOPLE ----------------
+# ================= PEOPLE =================
 def add_person(db: Session, name: str):
     person = Person(name=name)
     db.add(person)
@@ -51,33 +26,52 @@ def update_person(db: Session, person_id: int, name: str):
     person = get_person(db, person_id)
     person.name = name
     db.commit()
-    db.refresh(person)
     return person
 
 
 def delete_person(db: Session, person_id: int):
     person = get_person(db, person_id)
+
+    used = db.query(DailyEggPerson)\
+        .filter(DailyEggPerson.person_id == person_id)\
+        .first()
+
+    if used:
+        raise ValueError("Cannot delete person with history")
+
     db.delete(person)
     db.commit()
 
 
-# ---------------- DAILY EGGS ----------------
+# ================= RECHARGE =================
+def recharge_person(db: Session, person_id: int, amount: float):
+    if amount <= 0:
+        raise ValueError("Invalid amount")
+
+    person = get_person(db, person_id)
+    person.balance += amount
+    db.commit()
+
+    return {"name": person.name, "balance": round(person.balance, 2)}
+
+
+def clear_person_balance(db: Session, person_id: int):
+    person = get_person(db, person_id)
+    person.balance = 0
+    db.commit()
+    return {"message": "Balance cleared", "balance": 0}
+
+
+# ================= DAILY EGGS =================
 def add_daily_eggs(db: Session, data):
-    wallet = get_wallet(db)
+    if db.query(DailyEgg).filter(DailyEgg.date == data["date"]).first():
+        raise ValueError("Daily entry already exists for this date")
 
     total_eggs = sum(data["eggs"].values())
+    if total_eggs == 0:
+        raise ValueError("No eggs entered")
+
     total_cost = total_eggs * data["egg_price"]
-
-    if total_cost > wallet.balance:
-        raise ValueError("Insufficient wallet balance")
-
-    for pid, eggs in data["eggs"].items():
-        person = get_person(db, pid)
-        share = (eggs / total_eggs) * total_cost
-        person.total_eggs += eggs
-        person.total_amount += share
-
-    wallet.balance -= total_cost
 
     record = DailyEgg(
         date=data["date"],
@@ -85,94 +79,127 @@ def add_daily_eggs(db: Session, data):
         total_eggs=total_eggs,
         total_cost=total_cost
     )
-
     db.add(record)
-    db.commit()
+    db.flush()
 
-    return {
-        "total_eggs": total_eggs,
-        "total_cost": total_cost,
-        "wallet_balance": wallet.balance
-    }
+    for pid, eggs in data["eggs"].items():
+        if eggs <= 0:
+            continue
+
+        person = get_person(db, pid)
+        share = (eggs / total_eggs) * total_cost
+
+        person.total_eggs += eggs
+        person.total_amount += share
+        person.balance -= share
+
+        db.add(DailyEggPerson(
+            daily_egg_id=record.id,
+            person_id=pid,
+            eggs=eggs,
+            amount=share
+        ))
+
+    db.commit()
+    return {"message": "Daily eggs added", "total_cost": round(total_cost, 2)}
 
 
 def list_daily_eggs(db: Session):
     return db.query(DailyEgg).order_by(DailyEgg.date.desc()).all()
 
 
-# ---------------- RECHARGE SPLIT ----------------
-def recharge_split(db: Session, amount: float):
-    people = db.query(Person).all()
-    total_eggs = sum(p.total_eggs for p in people)
-
-    if total_eggs == 0:
-        return {}
-
-    return {
-        p.name: round((p.total_eggs / total_eggs) * amount, 2)
-        for p in people
-    }
-
-# ---------------- UNDO LAST DAILY ENTRY ----------------
 def undo_last_daily_eggs(db: Session):
     last = db.query(DailyEgg).order_by(DailyEgg.id.desc()).first()
     if not last:
         raise ValueError("No daily entry to undo")
 
-    wallet = get_wallet(db)
-    people = db.query(Person).all()
+    for entry in last.entries:
+        person = get_person(db, entry.person_id)
+        person.total_eggs -= entry.eggs
+        person.total_amount -= entry.amount
+        person.balance += entry.amount
 
-    total_eggs = sum(p.total_eggs for p in people)
-    if total_eggs == 0:
-        raise ValueError("Invalid state")
-
-    # rollback people
-    for p in people:
-        ratio = p.total_eggs / total_eggs
-        eggs_rollback = ratio * last.total_eggs
-        amount_rollback = ratio * last.total_cost
-
-        p.total_eggs -= round(eggs_rollback)
-        p.total_amount -= amount_rollback
-
-        if p.total_eggs < 0:
-            p.total_eggs = 0
-        if p.total_amount < 0:
-            p.total_amount = 0
-
-    # rollback wallet
-    wallet.balance += last.total_cost
-
-    # delete record
     db.delete(last)
     db.commit()
+    return {"message": "Last daily entry undone"}
 
+
+# ================= REPORTS =================
+def person_history(db: Session, person_id: int):
+    get_person(db, person_id)
+
+    rows = (
+        db.query(DailyEgg, DailyEggPerson)
+        .join(DailyEggPerson)
+        .filter(DailyEggPerson.person_id == person_id)
+        .order_by(DailyEgg.date.desc())
+        .all()
+    )
+
+    return [
+        {
+            "date": d.date,
+            "eggs": e.eggs,
+            "amount": round(e.amount, 2),
+            "egg_price": d.egg_price
+        }
+        for d, e in rows
+    ]
+
+
+def get_due_report(db: Session):
     return {
-        "message": "Last daily entry undone",
-        "wallet_balance": wallet.balance
+        p.name: round(abs(p.balance), 2)
+        for p in db.query(Person).all()
+        if p.balance < 0
     }
 
-# ---------------- CLEAR DAILY HISTORY ----------------
+
+def get_total_balance(db: Session):
+    people = db.query(Person).all()
+    credit = sum(p.balance for p in people if p.balance > 0)
+    due = sum(abs(p.balance) for p in people if p.balance < 0)
+
+    return {
+        "total_credit": round(credit, 2),
+        "total_due": round(due, 2),
+        "net_balance": round(credit - due, 2)
+    }
+
+
+# ================= CLEAR =================
 def clear_daily_history(db: Session):
+    db.query(DailyEggPerson).delete()
     db.query(DailyEgg).delete()
     db.commit()
-    return {"message": "Daily egg history cleared"}
+    return {"message": "Daily history cleared"}
 
-# ---------------- CLEAR ENTIRE DATABASE ----------------
+
 def clear_database(db: Session):
+    db.query(DailyEggPerson).delete()
     db.query(DailyEgg).delete()
     db.query(Person).delete()
-    db.query(Wallet).delete()
     db.commit()
     return {"message": "Database cleared completely"}
 
-# ---------------- CLEAR WALLET ----------------
-def clear_wallet(db: Session):
-    wallet = get_wallet(db)
-    wallet.balance = 0
-    db.commit()
-    db.refresh(wallet)
-    return {
-        "message": "Wallet balance cleared",
-        "balance": wallet.balance
-    }
+def get_person_history(db: Session, person_id: int):
+    person = db.get(Person, person_id)
+    if not person:
+        raise ValueError("Person not found")
+
+    rows = (
+        db.query(DailyEggPerson, DailyEgg)
+        .join(DailyEgg, DailyEgg.id == DailyEggPerson.daily_egg_id)
+        .filter(DailyEggPerson.person_id == person_id)
+        .order_by(DailyEgg.date.desc())
+        .all()
+    )
+
+    return [
+        {
+            "date": egg.date.isoformat(),
+            "eggs": entry.eggs,
+            "amount": round(entry.amount, 2)
+        }
+        for entry, egg in rows
+    ]

@@ -1,118 +1,112 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Egg Expense Tracker</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css"/>
 </head>
 <body>
 
 <header class="topbar">
-  <div class="brand">
-    <span class="logo">🥚</span>
-    <div>
-      <h1>Egg Expense Tracker</h1>
-      <p>Monthly consumption & cost management</p>
-    </div>
-  </div>
-
-  <!-- Dark mode toggle -->
-  <button id="themeToggle" class="theme-btn" onclick="toggleTheme()">🌙</button>
+  <h1>🥚 Egg Expense Tracker</h1>
+  <span class="subtitle">Daily egg consumption & balance tracking</span>
 </header>
 
-<main class="dashboard">
+<main class="container">
 
-  <!-- WALLET -->
-  <section class="card">
-    <h2>Wallet</h2>
-    <div class="form-row">
-      <input type="number" id="walletAmount" placeholder="Amount (₹)" />
-      <button class="btn outline" onclick="rechargeWallet()">Recharge</button>
-    </div>
-    <div class="balance">
-      Current Balance: <strong id="walletBalance">₹0</strong>
-    </div>
-  </section>
-
-  <!-- TEAM MEMBERS TABLE -->
+  <!-- TEAM MEMBERS -->
   <section class="card">
     <h2>Team Members</h2>
 
-    <div class="form-row">
-      <input type="text" id="personName" placeholder="Enter name" />
-      <button class="btn primary" onclick="addPerson()">Add</button>
+    <div class="row">
+      <input id="personName" placeholder="Enter name"/>
+      <button onclick="addPerson()">Add</button>
     </div>
 
-    <div class="table-wrapper">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Total Eggs</th>
-          </tr>
-        </thead>
-        <tbody id="peopleTable">
-          <!-- populated via JS -->
-        </tbody>
-      </table>
-    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Name</th>
+          <th>Total Eggs</th>
+          <th>Balance (₹)</th>
+          <th>Recharge</th>
+          <th>History</th>
+        </tr>
+      </thead>
+      <tbody id="peopleTable"></tbody>
+    </table>
   </section>
 
   <!-- DAILY EGGS -->
   <section class="card">
     <h2>Daily Egg Entry</h2>
-    <div class="form-row">
-      <input type="date" id="eggDate" />
-      <input type="number" id="eggPrice" placeholder="Egg price (₹)" />
+
+    <div class="row">
+      <input type="date" id="eggDate"/>
+      <input type="number" id="eggPrice" placeholder="Egg price"/>
     </div>
 
-    <div id="eggInputs" class="egg-grid"></div>
+    <div id="eggInputs" class="grid"></div>
 
-    <div class="form-row">
-  <button class="btn primary full" onclick="submitDailyEggs()">
-    Save Daily Entry
-  </button>
-  <button class="btn danger full" onclick="undoDailyEggs()">
-    Undo Last Entry
-  </button>
-</div>
-
+    <button class="primary" onclick="submitDailyEggs()">Save</button>
+    <button class="danger" onclick="undoDailyEggs()">Undo Last Entry</button>
   </section>
 
-  <!-- RECHARGE SPLIT TABLE -->
+  <!-- DAILY HISTORY -->
   <section class="card">
-    <h2>Recharge Split</h2>
+    <h2>Daily Egg History</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Egg Price</th>
+          <th>Total Eggs</th>
+          <th>Total Cost</th>
+        </tr>
+      </thead>
+      <tbody id="dailyHistory"></tbody>
+    </table>
+  </section>
 
-    <div class="form-row">
-      <input type="number" id="rechargeAmount" placeholder="Recharge amount (₹)" />
-      <button class="btn outline" onclick="calculateSplit()">Calculate</button>
-    </div>
+  <!-- DUE REPORT -->
+  <section class="card">
+    <h2>Due Report</h2>
+    <table>
+      <thead>
+        <tr><th>Name</th><th>Due (₹)</th></tr>
+      </thead>
+      <tbody id="dueTable"></tbody>
+    </table>
+  </section>
 
-    <div class="table-wrapper">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Amount (₹)</th>
-          </tr>
-        </thead>
-        <tbody id="splitTable">
-          <!-- populated via JS -->
-        </tbody>
-      </table>
-    </div>
+  <!-- TOTAL BALANCE -->
+  <section class="card summary">
+    <div>💰 Credit: <span id="credit"></span></div>
+    <div>📉 Due: <span id="due"></span></div>
+    <div>⚖ Net: <span id="net"></span></div>
   </section>
 
 </main>
 
-<footer class="footer">
-  © 2026 Egg Expense Tracker • Internal Use
-</footer>
-
-<!-- Toast -->
-<div id="toast" class="toast"></div>
+<!-- HISTORY MODAL -->
+<div id="modal" class="modal">
+  <div class="modal-content">
+    <h3 id="modalTitle"></h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Eggs</th>
+          <th>Amount</th>
+        </tr>
+      </thead>
+      <tbody id="personHistory"></tbody>
+    </table>
+    <button onclick="closeModal()">Close</button>
+  </div>
+</div>
 
 <script src="app.js"></script>
 </body>

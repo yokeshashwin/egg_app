@@ -1,215 +1,191 @@
 const API = "https://egg-app.onrender.com";
 
-/* ========= LAST USED EGGS ========= */
-function getLastEggs() {
-  return JSON.parse(localStorage.getItem("lastEggs") || "{}");
-}
-function saveLastEggs(eggs) {
-  localStorage.setItem("lastEggs", JSON.stringify(eggs));
-}
+/* CACHE */
+const getCache = k => JSON.parse(localStorage.getItem(k) || "{}");
+const setCache = (k,v) => localStorage.setItem(k, JSON.stringify(v));
 
-/* ========= LAST USED EGG PRICE ========= */
-function getLastEggPrice() {
-  return localStorage.getItem("lastEggPrice") || "";
-}
-function saveLastEggPrice(price) {
-  localStorage.setItem("lastEggPrice", price);
-}
-
-/* ========= TOAST ========= */
-function showToast(msg, type = "success") {
-  const toast = document.getElementById("toast");
-  toast.textContent = msg;
-  toast.className = `toast show ${type}`;
-  setTimeout(() => (toast.className = "toast"), 2500);
-}
-
-/* ========= THEME ========= */
-function toggleTheme() {
-  document.body.classList.toggle("dark");
-  const isDark = document.body.classList.contains("dark");
-  localStorage.setItem("theme", isDark ? "dark" : "light");
-  document.getElementById("themeToggle").textContent = isDark ? "☀️" : "🌙";
-}
+/* INIT */
 (function () {
-  if (localStorage.getItem("theme") === "dark") {
-    document.body.classList.add("dark");
-    document.getElementById("themeToggle").textContent = "☀️";
-  }
+  const d = new Date().toISOString().slice(0,10);
+  eggDate.value = d;
+  eggPrice.value = localStorage.getItem("eggPrice") || "";
+  loadAll();
 })();
 
-/* ========= SET TODAY'S DATE + LAST EGG PRICE ========= */
-function setTodayDate() {
-  const today = new Date();
-  const yyyy = today.getFullYear();
-  const mm = String(today.getMonth() + 1).padStart(2, "0");
-  const dd = String(today.getDate()).padStart(2, "0");
-  eggDate.value = `${yyyy}-${mm}-${dd}`;
-
-  // 🔥 Auto-fill egg price from cache
-  const lastPrice = getLastEggPrice();
-  if (lastPrice) {
-    eggPrice.value = lastPrice;
-  }
+async function loadAll() {
+  loadPeople();
+  loadDailyHistory();
+  loadDue();
+  loadTotalBalance();
 }
 
-/* ========= WALLET ========= */
-async function createWallet() {
-  const amount = walletAmount.value;
-  await fetch(`${API}/wallet/create`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ amount: Number(amount) })
-  });
-  loadWallet();
-  showToast("Wallet created");
-}
-
-async function rechargeWallet() {
-  const amount = walletAmount.value;
-  await fetch(`${API}/wallet/recharge`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ amount: Number(amount) })
-  });
-  loadWallet();
-  showToast("Wallet recharged");
-}
-
-async function loadWallet() {
-  const res = await fetch(`${API}/wallet`);
-  const data = await res.json();
-  walletBalance.innerText = `₹${data.balance}`;
-}
-
-/* ========= PEOPLE ========= */
+/* PEOPLE */
 async function loadPeople() {
-  const res = await fetch(`${API}/people`);
-  const people = await res.json();
-  const lastEggs = getLastEggs();
-
-  const peopleTable = document.getElementById("peopleTable");
-  const eggInputs = document.getElementById("eggInputs");
+  const people = await fetch(`${API}/people`).then(r => r.json());
+  const cache = getCache("eggs");
 
   peopleTable.innerHTML = "";
   eggInputs.innerHTML = "";
 
-  people.forEach((p, index) => {
-    // TABLE ROW
+  people.forEach((p, i) => {
     const tr = document.createElement("tr");
+
     tr.innerHTML = `
-      <td>${index + 1}</td>
+      <td>${i + 1}</td>
       <td>${p.name}</td>
-      <td><span class="badge">${p.total_eggs}</span></td>
+      <td>${p.total_eggs}</td>
+      <td class="${p.balance < 0 ? "negative" : "positive"}">
+        ₹${p.balance.toFixed(2)}
+      </td>
+      <td>
+        <input id="pay-${p.id}" placeholder="₹" class="pay-input"/>
+        <button class="mini" data-id="${p.id}">Pay</button>
+      </td>
+      <td>
+        <button class="mini secondary" data-history="${p.id}" data-name="${p.name}">
+          View
+        </button>
+      </td>
     `;
+
     peopleTable.appendChild(tr);
 
-    // DAILY EGG INPUT
-    const input = document.createElement("input");
-    input.type = "number";
-    input.min = 0;
-    input.id = `egg-${p.id}`;
-    input.placeholder = `${p.name} eggs`;
-    input.value = lastEggs[p.id] ?? 0;
+    const inp = document.createElement("input");
+    inp.id = `egg-${p.id}`;
+    inp.placeholder = p.name;
+    inp.type = "number";
+    inp.value = cache[p.id] || 0;
+    eggInputs.appendChild(inp);
+  });
 
-    eggInputs.appendChild(input);
+  // Attach listeners SAFELY
+  document.querySelectorAll("[data-history]").forEach(btn => {
+    btn.onclick = () =>
+      viewHistory(btn.dataset.history, btn.dataset.name);
+  });
+
+  document.querySelectorAll(".mini:not(.secondary)").forEach(btn => {
+    btn.onclick = () => pay(btn.dataset.id);
   });
 }
+
 
 async function addPerson() {
-  if (!personName.value.trim()) {
-    showToast("Name required", "error");
-    return;
-  }
-  await fetch(`${API}/people`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name: personName.value })
+  await fetch(`${API}/people`,{
+    method:"POST",
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({name:personName.value})
   });
-  personName.value = "";
+  personName.value="";
   loadPeople();
-  showToast("Person added");
 }
 
-/* ========= UNDO DAILY EGGS ========= */
-async function undoDailyEggs() {
-  if (!confirm("Undo last daily egg entry? This cannot be reverted.")) return;
-
-  const res = await fetch(`${API}/daily-eggs/undo`, { method: "POST" });
-  if (!res.ok) {
-    const err = await res.json();
-    showToast(err.detail || "Nothing to undo", "error");
-    return;
-  }
-
-  loadWallet();
+/* RECHARGE */
+async function pay(id) {
+  const amt = document.getElementById(`pay-${id}`).value;
+  await fetch(`${API}/people/${id}/recharge`,{
+    method:"POST",
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({amount:Number(amt)})
+  });
   loadPeople();
-  showToast("Last daily entry undone");
+  loadTotalBalance();
 }
 
-/* ========= DAILY EGGS ========= */
+/* DAILY EGGS */
 async function submitDailyEggs() {
-  if (!eggDate.value || !eggPrice.value) {
-    showToast("Date & price required", "error");
-    return;
-  }
-
-  const res = await fetch(`${API}/people`);
-  const people = await res.json();
+  const people = await fetch(`${API}/people`).then(r=>r.json());
   const eggs = {};
+  people.forEach(p=>eggs[p.id]=Number(document.getElementById(`egg-${p.id}`).value||0));
 
-  people.forEach(p => {
-    eggs[p.id] = Number(document.getElementById(`egg-${p.id}`).value || 0);
-  });
-
-  await fetch(`${API}/daily-eggs`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      date: eggDate.value,
-      egg_price: Number(eggPrice.value),
+  await fetch(`${API}/daily-eggs`,{
+    method:"POST",
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      date:eggDate.value,
+      egg_price:Number(eggPrice.value),
       eggs
     })
   });
 
-  // 🔥 SAVE TO CACHE
-  saveLastEggs(eggs);
-  saveLastEggPrice(eggPrice.value);
+  setCache("eggs",eggs);
+  localStorage.setItem("eggPrice",eggPrice.value);
 
-  loadWallet();
-  loadPeople();
-  showToast("Daily entry saved");
+  loadAll();
 }
 
-/* ========= RECHARGE SPLIT ========= */
-async function calculateSplit() {
-  if (!rechargeAmount.value) {
-    showToast("Enter recharge amount", "error");
+async function undoDailyEggs() {
+  await fetch(`${API}/daily-eggs/undo`,{method:"POST"});
+  loadAll();
+}
+
+/* HISTORY */
+async function loadDailyHistory() {
+  const rows = await fetch(`${API}/reports/daily-eggs`).then(r=>r.json());
+  dailyHistory.innerHTML="";
+  rows.forEach(r=>{
+    dailyHistory.innerHTML+=`
+      <tr>
+        <td>${r.date}</td>
+        <td>₹${r.egg_price}</td>
+        <td>${r.total_eggs}</td>
+        <td>₹${r.total_cost}</td>
+      </tr>`;
+  });
+}
+
+async function viewHistory(id, name) {
+  modal.style.display = "flex";
+  modalTitle.innerText = `${name} History`;
+
+  personHistory.innerHTML =
+    `<tr><td colspan="3">Loading...</td></tr>`;
+
+  const res = await fetch(`${API}/reports/person/${id}`);
+
+  if (!res.ok) {
+    personHistory.innerHTML =
+      `<tr><td colspan="3">No history found</td></tr>`;
     return;
   }
 
-  const res = await fetch(
-    `${API}/recharge-split?amount=${rechargeAmount.value}`,
-    { method: "POST" }
-  );
+  const rows = await res.json();
 
-  const data = await res.json();
-  const splitTable = document.getElementById("splitTable");
-  splitTable.innerHTML = "";
+  if (rows.length === 0) {
+    personHistory.innerHTML =
+      `<tr><td colspan="3">No records</td></tr>`;
+    return;
+  }
 
-  Object.entries(data).forEach(([name, amount]) => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${name}</td>
-      <td class="amount">₹${amount.toFixed(2)}</td>
+  personHistory.innerHTML = "";
+  rows.forEach(r => {
+    personHistory.innerHTML += `
+      <tr>
+        <td>${r.date}</td>
+        <td>${r.eggs}</td>
+        <td>₹${r.amount.toFixed(2)}</td>
+      </tr>
     `;
-    splitTable.appendChild(tr);
   });
-
-  showToast("Recharge split calculated");
 }
 
-/* ========= INIT ========= */
-setTodayDate();
-loadWallet();
-loadPeople();
+
+function closeModal() {
+  modal.style.display="none";
+}
+
+/* REPORTS */
+async function loadDue() {
+  const data = await fetch(`${API}/reports/dues`).then(r=>r.json());
+  dueTable.innerHTML="";
+  Object.entries(data).forEach(([n,v])=>{
+    dueTable.innerHTML+=`<tr><td>${n}</td><td class="negative">₹${v}</td></tr>`;
+  });
+}
+
+async function loadTotalBalance() {
+  const d = await fetch(`${API}/reports/total-balance`).then(r=>r.json());
+  credit.innerText = `₹${d.total_credit}`;
+  due.innerText = `₹${d.total_due}`;
+  net.innerText = `₹${d.net_balance}`;
+}
