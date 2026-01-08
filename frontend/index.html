@@ -8,14 +8,16 @@
 </head>
 <body>
 
+<!-- ================= TOP BAR ================= -->
 <header class="topbar">
   <h1>🥚 Egg Expense Tracker</h1>
-  <span class="subtitle">Daily egg consumption & balance tracking</span>
+  <div class="subtitle">Daily egg consumption & balance tracking</div>
 </header>
 
+<!-- ================= MAIN ================= -->
 <main class="container">
 
-  <!-- TEAM MEMBERS -->
+  <!-- ================= TEAM MEMBERS ================= -->
   <section class="card">
     <h2>Team Members</h2>
 
@@ -24,89 +26,121 @@
       <button onclick="addPerson()">Add</button>
     </div>
 
-    <table>
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Name</th>
-          <th>Total Eggs</th>
-          <th>Balance (₹)</th>
-          <th>Recharge</th>
-          <th>History</th>
-        </tr>
-      </thead>
-      <tbody id="peopleTable"></tbody>
-    </table>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Name</th>
+            <th>Total Eggs</th>
+            <th>Balance (₹)</th>
+            <th>Recharge</th>
+            <th>History</th>
+          </tr>
+        </thead>
+        <tbody id="peopleTable">
+          <!-- JS renders rows -->
+        </tbody>
+      </table>
+    </div>
   </section>
 
-  <!-- DAILY EGGS -->
+  <!-- ================= DAILY EGGS ================= -->
   <section class="card">
     <h2>Daily Egg Entry</h2>
 
     <div class="row">
       <input type="date" id="eggDate"/>
-      <input type="number" id="eggPrice" placeholder="Egg price"/>
+      <input type="number" id="eggPrice" placeholder="Egg price (₹)"/>
     </div>
 
-    <div id="eggInputs" class="grid"></div>
+    <div id="eggInputs" class="grid">
+      <!-- JS renders egg inputs -->
+    </div>
 
-    <button class="primary" onclick="submitDailyEggs()">Save</button>
-    <button class="danger" onclick="undoDailyEggs()">Undo Last Entry</button>
+    <div class="row">
+      <button class="primary" onclick="submitDailyEggs()">Save</button>
+      <button class="danger" onclick="undoDailyEggs()">Undo Last Entry</button>
+    </div>
   </section>
 
-  <!-- DAILY HISTORY -->
+  <!-- ================= DAILY HISTORY ================= -->
   <section class="card">
     <h2>Daily Egg History</h2>
-    <table>
-      <thead>
-        <tr>
-          <th>Date</th>
-          <th>Egg Price</th>
-          <th>Total Eggs</th>
-          <th>Total Cost</th>
-        </tr>
-      </thead>
-      <tbody id="dailyHistory"></tbody>
-    </table>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Egg Price</th>
+            <th>Total Eggs</th>
+            <th>Total Cost</th>
+          </tr>
+        </thead>
+        <tbody id="dailyHistory">
+          <!-- JS renders history -->
+        </tbody>
+      </table>
+    </div>
   </section>
 
-  <!-- DUE REPORT -->
+  <!-- ================= DUE REPORT ================= -->
   <section class="card">
     <h2>Due Report</h2>
-    <table>
-      <thead>
-        <tr><th>Name</th><th>Due (₹)</th></tr>
-      </thead>
-      <tbody id="dueTable"></tbody>
-    </table>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Due (₹)</th>
+          </tr>
+        </thead>
+        <tbody id="dueTable">
+          <!-- JS renders due -->
+        </tbody>
+      </table>
+    </div>
   </section>
 
-  <!-- TOTAL BALANCE -->
+  <!-- ================= TOTAL BALANCE ================= -->
   <section class="card summary">
-    <div>💰 Credit: <span id="credit"></span></div>
-    <div>📉 Due: <span id="due"></span></div>
-    <div>⚖ Net: <span id="net"></span></div>
+    <div>💰 Credit: <span id="credit">₹0</span></div>
+    <div>📉 Due: <span id="due">₹0</span></div>
+    <div>⚖ Net: <span id="net">₹0</span></div>
   </section>
 
 </main>
 
-<!-- HISTORY MODAL -->
+<!-- ================= HISTORY MODAL ================= -->
 <div id="modal" class="modal">
   <div class="modal-content">
-    <h3 id="modalTitle"></h3>
-    <table>
-      <thead>
-        <tr>
-          <th>Date</th>
-          <th>Eggs</th>
-          <th>Amount</th>
-        </tr>
-      </thead>
-      <tbody id="personHistory"></tbody>
-    </table>
-    <button onclick="closeModal()">Close</button>
+    <h3 id="modalTitle">History</h3>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Eggs</th>
+            <th>Amount (₹)</th>
+          </tr>
+        </thead>
+        <tbody id="personHistory">
+          <!-- JS renders person history -->
+        </tbody>
+      </table>
+    </div>
+
+    <div class="row">
+      <button onclick="closeModal()">Close</button>
+    </div>
   </div>
 </div>
+
+<!-- ================= TOAST ================= -->
+<div id="toast" class="toast"></div>
 
 <script src="app.js"></script>
 </body>
