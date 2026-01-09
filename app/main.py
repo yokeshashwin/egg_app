@@ -9,7 +9,6 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Egg Counting App")
 
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -29,7 +28,10 @@ def get_db():
 # ================= PEOPLE =================
 @app.post("/people")
 def add_person(person: schemas.PersonCreate, db: Session = Depends(get_db)):
-    return services.add_person(db, person.name)
+    try:
+        return services.add_person(db, person.name)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
 
 
 @app.get("/people")
@@ -62,7 +64,10 @@ def delete_person(person_id: int, db: Session = Depends(get_db)):
 # ================= RECHARGE =================
 @app.post("/people/{person_id}/recharge")
 def recharge_person(person_id: int, body: schemas.RechargeAmount, db: Session = Depends(get_db)):
-    return services.recharge_person(db, person_id, body.amount)
+    try:
+        return services.recharge_person(db, person_id, body.amount)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
 
 
 @app.post("/people/{person_id}/clear-balance")
@@ -70,15 +75,30 @@ def clear_person_balance(person_id: int, db: Session = Depends(get_db)):
     return services.clear_person_balance(db, person_id)
 
 
+# 🆕 CLEAR DUE API
+@app.post("/people/{person_id}/clear-due")
+def clear_due(person_id: int, db: Session = Depends(get_db)):
+    try:
+        return services.clear_due(db, person_id)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
 # ================= DAILY EGGS =================
 @app.post("/daily-eggs")
 def daily_eggs(entry: schemas.DailyEggEntry, db: Session = Depends(get_db)):
-    return services.add_daily_eggs(db, entry.dict())
+    try:
+        return services.add_daily_eggs(db, entry.dict())
+    except ValueError as e:
+        raise HTTPException(400, str(e))
 
 
 @app.post("/daily-eggs/undo")
 def undo_daily_eggs(db: Session = Depends(get_db)):
-    return services.undo_last_daily_eggs(db)
+    try:
+        return services.undo_last_daily_eggs(db)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
 
 
 @app.get("/reports/daily-eggs")
@@ -96,6 +116,11 @@ def person_history(person_id: int, db: Session = Depends(get_db)):
 def dues(db: Session = Depends(get_db)):
     return services.get_due_report(db)
 
+# ================= CLEAR ALL DUES =================
+@app.post("/admin/clear-all-dues")
+def clear_all_dues(db: Session = Depends(get_db)):
+    return services.clear_all_dues(db)
+
 
 @app.get("/reports/total-balance")
 def total_balance(db: Session = Depends(get_db)):
@@ -112,9 +137,3 @@ def clear_daily(db: Session = Depends(get_db)):
 def clear_db(db: Session = Depends(get_db)):
     return services.clear_database(db)
 
-@app.get("/reports/person/{person_id}")
-def person_history(person_id: int, db: Session = Depends(get_db)):
-    try:
-        return services.get_person_history(db, person_id)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
