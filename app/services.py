@@ -1,9 +1,17 @@
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from app.models import Person, DailyEgg, DailyEggPerson
 
 
 # ================= PEOPLE =================
 def add_person(db: Session, name: str):
+    if not name.strip():
+        raise ValueError("Name required")
+
+    exists = db.query(Person).filter(Person.name == name).first()
+    if exists:
+        raise ValueError("Person already exists")
+
     person = Person(name=name)
     db.add(person)
     db.commit()
@@ -30,8 +38,6 @@ def update_person(db: Session, person_id: int, name: str):
 
 
 def delete_person(db: Session, person_id: int):
-    person = get_person(db, person_id)
-
     used = db.query(DailyEggPerson)\
         .filter(DailyEggPerson.person_id == person_id)\
         .first()
@@ -39,6 +45,7 @@ def delete_person(db: Session, person_id: int):
     if used:
         raise ValueError("Cannot delete person with history")
 
+    person = get_person(db, person_id)
     db.delete(person)
     db.commit()
 
@@ -52,7 +59,10 @@ def recharge_person(db: Session, person_id: int, amount: float):
     person.balance += amount
     db.commit()
 
-    return {"name": person.name, "balance": round(person.balance, 2)}
+    return {
+        "name": person.name,
+        "balance": round(person.balance, 2)
+    }
 
 
 def clear_person_balance(db: Session, person_id: int):
@@ -60,6 +70,25 @@ def clear_person_balance(db: Session, person_id: int):
     person.balance = 0
     db.commit()
     return {"message": "Balance cleared", "balance": 0}
+
+
+# 🆕 CLEAR ONLY DUE (NEGATIVE -> 0)
+def clear_due(db: Session, person_id: int):
+    person = get_person(db, person_id)
+
+    if person.balance >= 0:
+        return {
+            "message": "No due to clear",
+            "balance": round(person.balance, 2)
+        }
+
+    person.balance = 0
+    db.commit()
+
+    return {
+        "message": f"{person.name} due cleared",
+        "balance": 0
+    }
 
 
 # ================= DAILY EGGS =================
@@ -101,7 +130,10 @@ def add_daily_eggs(db: Session, data):
         ))
 
     db.commit()
-    return {"message": "Daily eggs added", "total_cost": round(total_cost, 2)}
+    return {
+        "message": "Daily eggs added",
+        "total_cost": round(total_cost, 2)
+    }
 
 
 def list_daily_eggs(db: Session):
@@ -166,6 +198,23 @@ def get_total_balance(db: Session):
         "net_balance": round(credit - due, 2)
     }
 
+# ================= CLEAR ALL DUES =================
+def clear_all_dues(db: Session):
+    people = db.query(Person).all()
+    count = 0
+
+    for p in people:
+        if p.balance < 0:
+            p.balance = 0
+            count += 1
+
+    db.commit()
+
+    return {
+        "message": "All dues cleared successfully",
+        "cleared_users": count
+    }
+
 
 # ================= CLEAR =================
 def clear_daily_history(db: Session):
@@ -182,24 +231,3 @@ def clear_database(db: Session):
     db.commit()
     return {"message": "Database cleared completely"}
 
-def get_person_history(db: Session, person_id: int):
-    person = db.get(Person, person_id)
-    if not person:
-        raise ValueError("Person not found")
-
-    rows = (
-        db.query(DailyEggPerson, DailyEgg)
-        .join(DailyEgg, DailyEgg.id == DailyEggPerson.daily_egg_id)
-        .filter(DailyEggPerson.person_id == person_id)
-        .order_by(DailyEgg.date.desc())
-        .all()
-    )
-
-    return [
-        {
-            "date": egg.date.isoformat(),
-            "eggs": entry.eggs,
-            "amount": round(entry.amount, 2)
-        }
-        for entry, egg in rows
-    ]
