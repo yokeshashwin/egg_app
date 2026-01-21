@@ -1,4 +1,4 @@
-const API = "https://egg-app.onrender.com";
+const API = "https://egg-app-31vw.vercel.app";
 
 /* ================= CACHE ================= */
 const getCache = k => JSON.parse(localStorage.getItem(k) || "{}");
